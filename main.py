@@ -97,8 +97,8 @@ Examples:
     )
     parser.add_argument("--port", type=int, default=int(environ.get("PORT", "9300")),
                         help="WebSocket server port (default: 9300, or $PORT env var)")
-    parser.add_argument("--host", default="0.0.0.0",
-                        help="WebSocket server bind address (default: 0.0.0.0)")
+    parser.add_argument("--host", default=environ.get("HOST", "0.0.0.0"),
+                        help="WebSocket server bind address (default: 0.0.0.0, or $HOST env var)")
     parser.add_argument("--version", choices=["1.6", "2.0.1", "auto"], default="auto",
                         help="OCPP version (default: auto-detect from subprotocol)")
     parser.add_argument("--tests", type=str, default=None,
