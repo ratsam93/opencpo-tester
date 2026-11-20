@@ -350,12 +350,12 @@ class GetCompositeSchedule201(OCPPTest):
             return self.result(False, f"GetCompositeSchedule error: {ec}", exchanges=exchanges)
 
         status = resp.get("status", "")
-        if status not in ("OK", "Rejected"):
+        if status not in ("Accepted", "Rejected"):
             return self.result(False,
                 f"Invalid status: '{status}'",
-                expected="'OK' or 'Rejected'",
+                expected="'Accepted' or 'Rejected'",
                 actual=f"'{status}'",
-                fix="GetCompositeSchedule.conf status must be 'OK' or 'Rejected'",
+                fix="GetCompositeSchedule.conf status must be 'Accepted' or 'Rejected'",
                 exchanges=exchanges)
 
         if status == "Rejected":
