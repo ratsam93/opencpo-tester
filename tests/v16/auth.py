@@ -248,10 +248,87 @@ class LocalAuthListSupport(OCPPTest):
             details={"list_version": version})
 
 
+class SendLocalListFull(OCPPTest):
+    name = "send_local_list_full"
+    category = "auth"
+    description = "SendLocalList (Full) with one entry, then Full with an empty list to clean up"
+    ocpp_spec_ref = "OCPP 1.6 §5.15"
+    severity = Severity.INFO
+    versions = ["1.6"]
+
+    VALID_STATUSES = {"Accepted", "Failed", "NotSupported", "VersionMismatch"}
+
+    async def run(self, connection) -> TestResult:
+        supported = connection.known_config.get("SupportedFeatureProfiles", "")
+        if supported and "LocalAuthListManagement" not in supported:
+            return self.skip("LocalAuthListManagement not in SupportedFeatureProfiles")
+
+        exchanges = []
+        ver_resp = await connection.send_call_and_wait("GetLocalListVersion", {}, timeout=10.0)
+        current = ver_resp.get("listVersion") if ver_resp and not ver_resp.get("_is_error") else None
+        if not isinstance(current, int):
+            return self.skip("GetLocalListVersion unavailable — cannot pick a listVersion")
+        if current < 0:
+            return self.skip("listVersion -1 (local list unsupported)")
+
+        payload = {
+            "listVersion": current + 1,
+            "updateType": "Full",
+            "localAuthorizationList": [
+                {"idTag": "OCPPTESTTAG01", "idTagInfo": {"status": "Accepted"}},
+            ],
+        }
+        resp = await connection.send_call_and_wait("SendLocalList", payload, timeout=15.0)
+        exchanges.append(make_exchange("SENT", "SendLocalList", "send_local_list", payload))
+
+        if resp is None:
+            return self.result(False, "SendLocalList timed out — no response",
+                fix="Implement SendLocalList handler", exchanges=exchanges)
+        exchanges.append(make_exchange("RECEIVED", "SendLocalList.conf", "send_local_list", resp))
+
+        if resp.get("_is_error"):
+            code = resp.get("error_code", "")
+            if code in ("NotImplemented", "NotSupported"):
+                return self.result(True,
+                    f"SendLocalList returned {code} — feature not supported (acceptable)",
+                    exchanges=exchanges)
+            return self.result(False, f"SendLocalList returned error: {code}", exchanges=exchanges)
+
+        status = resp.get("status", "")
+        if status not in self.VALID_STATUSES:
+            return self.result(False, f"Invalid SendLocalList status: '{status}'",
+                expected=f"One of: {sorted(self.VALID_STATUSES)}",
+                actual=f"'{status}'",
+                fix=f"SendLocalList.conf status must be one of {sorted(self.VALID_STATUSES)}",
+                exchanges=exchanges)
+
+        if status != "Accepted":
+            return self.result(True, f"SendLocalList(Full) → {status} (valid)", exchanges=exchanges)
+
+        # Verify the version was applied, then empty the list again (Full + no entries).
+        check = await connection.send_call_and_wait("GetLocalListVersion", {}, timeout=10.0)
+        new_version = check.get("listVersion") if check else None
+        cleanup = {"listVersion": current + 2, "updateType": "Full"}
+        await connection.send_call_and_wait("SendLocalList", cleanup, timeout=15.0)
+        exchanges.append(make_exchange("SENT", "SendLocalList", "send_local_list_cleanup", cleanup))
+
+        if new_version != current + 1:
+            return self.result(False,
+                f"listVersion after SendLocalList is {new_version!r}, expected {current + 1}",
+                expected=f"listVersion {current + 1}", actual=str(new_version),
+                fix="Store the listVersion from SendLocalList and return it in GetLocalListVersion",
+                exchanges=exchanges)
+
+        return self.result(True,
+            f"SendLocalList(Full) → Accepted, GetLocalListVersion = {new_version}",
+            exchanges=exchanges)
+
+
 ALL_TESTS = [
     AuthorizeValidIdTag,
     AuthorizeInvalidIdTag,
     AuthorizeIdTagFormat,
     AuthorizeParentIdTag,
     LocalAuthListSupport,
+    SendLocalListFull,
 ]

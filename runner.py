@@ -38,6 +38,7 @@ from tests.v16.remote_control import ALL_TESTS as REMOTE_16
 from tests.v16.smart_charging import ALL_TESTS as SMART_16
 from tests.v16.firmware import ALL_TESTS as FW_16
 from tests.v16.protocol import ALL_TESTS as PROTO_16
+from tests.v16.reservation import ALL_TESTS as RESERVATION_16
 
 # OCPP 2.0.1 tests
 from tests.v201.boot import ALL_TESTS as BOOT_201
@@ -62,6 +63,7 @@ V16_TEST_CATEGORIES = {
     "smart_charging": SMART_16,
     "firmware": FW_16,
     "protocol": PROTO_16,
+    "reservation": RESERVATION_16,
 }
 
 V201_TEST_CATEGORIES = {
@@ -88,7 +90,7 @@ EXCLUDED_TESTS = {
 DEFAULT_CATEGORY_ORDER = [
     "boot", "protocol", "status", "remote_control",
     "auth", "transactions", "meter_values",
-    "smart_charging", "security", "firmware",
+    "smart_charging", "reservation", "security", "firmware",
 ]
 
 # Non-default tests (only run with --full)

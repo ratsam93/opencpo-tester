@@ -49,6 +49,7 @@ Tests that verify token authorization behavior.
 | `authorize_invalid_idtag` | Unknown RFID tag returns `Invalid` | OCPP 1.6 §4.2 | `idTagInfo.status: Invalid` | CRITICAL | Yes |
 | `authorize_contains_idtag_info` | Response contains `idTagInfo` object | OCPP 1.6 §4.2 | Object present with `status` field | CRITICAL | No |
 | `authorize_response_time` | Authorization response within 5 seconds | OCPP 1.6 §4.2 | Response < 5s | WARNING | No |
+| `send_local_list_full` | SendLocalList (Full) then GetLocalListVersion; list is emptied afterwards | OCPP 1.6 §5.15 | Valid status; if `Accepted`, version matches | INFO | No |
 
 ---
 
@@ -99,6 +100,17 @@ Tests that verify energy and power measurement reporting.
 | `unlock_connector` | UnlockConnector returns valid status | OCPP 1.6 §5.16 | Response is Unlocked or NotSupported | INFO |
 | `change_availability` | ChangeAvailability changes connector state | OCPP 1.6 §5.3 | StatusNotification shows Unavailable | WARNING |
 | `reset_soft` | Reset(Soft) causes BootNotification | OCPP 1.6 §5.10 | BootNotification received within 120s | WARNING |
+| `change_availability_operative` | ChangeAvailability(Operative) returns valid status | OCPP 1.6 §5.2 | Accepted, Rejected or Scheduled | WARNING |
+| `clear_cache` | ClearCache returns valid status | OCPP 1.6 §5.3 | Accepted or Rejected | INFO |
+
+---
+
+## Reservation (`reservation`)
+
+| Test Name | Checks | Spec Ref | Pass Criteria | Severity |
+|---|---|---|---|---|
+| `reserve_now_cancel` | ReserveNow, then CancelReservation if accepted | OCPP 1.6 §5.13, §5.2 | Valid ReserveNow status; Cancel returns `Accepted` | INFO |
+| `cancel_reservation_unknown_id` | CancelReservation with unknown id | OCPP 1.6 §5.2 | `Rejected` | INFO |
 
 ---
 
