@@ -48,3 +48,33 @@ def test_excluded_entries_exist_and_are_unregistered():
 def test_default_order_covers_categories():
     cats = set(runner.V16_TEST_CATEGORIES) | set(runner.V201_TEST_CATEGORIES)
     assert cats <= set(runner.DEFAULT_CATEGORY_ORDER)
+
+
+# ── found by running the tester against real chargers ────────────────────
+
+def test_flatten_config_keeps_sections_so_timeout_is_honoured():
+    from main import flatten_config
+    flat = flatten_config({"timing": {"test_timeout": 25, "boot_timeout": 60}, "server": {"port": 1}})
+    assert flat["timing"]["test_timeout"] == 25      # TestRunner reads this
+    assert flat["test_timeout"] == 25 and flat["port"] == 1   # tests read flat keys
+
+
+def test_runner_uses_cli_timeout():
+    from main import flatten_config
+    from runner import TestRunner
+    assert TestRunner(flatten_config({"timing": {"test_timeout": 25}})).timeout == 25
+
+
+def test_errors_are_not_a_pass():
+    from main import exit_status
+    from tests.base import Severity, TestResult, TestStatus
+
+    def mk(status, sev=Severity.WARNING):
+        r = TestResult.__new__(TestResult)
+        r.status, r.severity = status, sev
+        return r
+
+    assert exit_status([mk(TestStatus.PASS)])[0] == 0
+    code, msg = exit_status([mk(TestStatus.PASS), mk(TestStatus.ERROR)])
+    assert code == 1 and "inconclusive" in msg
+    assert exit_status([mk(TestStatus.FAIL, Severity.CRITICAL)])[0] == 2

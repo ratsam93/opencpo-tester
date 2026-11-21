@@ -4,6 +4,7 @@ OCPP Compliance Test Runner / Orchestrator.
 Runs tests in dependency order, handles timeouts, interactive prompts,
 auto-responds to charger messages during tests, and collects results.
 """
+import itertools
 import asyncio
 import json
 import logging
@@ -95,6 +96,9 @@ DEFAULT_CATEGORY_ORDER = [
 
 # Non-default tests (only run with --full)
 FULL_ONLY_CATEGORIES = {"firmware"}
+
+
+_TXN_IDS = itertools.count(1001)   # nonzero: tests treat 0 as "no transaction"
 
 
 class TestRunner:
@@ -349,7 +353,7 @@ async def handle_boot_sequence(server: OCPPServer, connection: ChargerConnection
     async def handle_start_txn(conn, uid, action, payload):
         connector_id = payload.get("connectorId", 1)
         meter_start = payload.get("meterStart", 0)
-        txn_id = 0
+        txn_id = next(_TXN_IDS)
         conn.active_transaction_id = txn_id
         conn.active_connector_id = connector_id
         conn.meter_start = meter_start
@@ -486,7 +490,7 @@ def preregister_handlers(server: OCPPServer, config: dict):
         return msg16.authorize_conf("Accepted")
 
     async def handle_start_txn(conn, uid, action, payload):
-        txn_id = 0
+        txn_id = next(_TXN_IDS)
         conn.active_transaction_id = txn_id
         conn.active_connector_id = payload.get("connectorId", 1)
         conn.meter_start = payload.get("meterStart", 0)
