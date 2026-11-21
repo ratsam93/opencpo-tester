@@ -29,9 +29,38 @@ from runner import TestRunner, handle_boot_sequence, run_getconfig_phase, prereg
 from report.generator import ReportGenerator
 from report.html import generate_html
 from report.pdf import generate_pdf
-from tests.base import Severity
+from tests.base import Severity, TestStatus
 
 console = Console()
+
+
+def flatten_config(config: dict) -> dict:
+    """Flat keys for easy access by tests, while keeping the original sections.
+
+    The runner reads config["timing"]["test_timeout"] (and other section lookups);
+    flattening that dropped the sections, so --timeout was silently ignored and
+    every timing value fell back to its default.
+    """
+    flat = dict(config)                      # keeps "timing", "server", ...
+    for section, values in config.items():
+        if isinstance(values, dict):
+            flat.update(values)
+    return flat
+
+
+def exit_status(results) -> tuple[int, str]:
+    """Exit code and message. An ERROR is not a pass: the test could not run."""
+    critical = sum(1 for r in results if r.failed and r.severity == Severity.CRITICAL)
+    if critical:
+        return 2, f"[bold red]⚠ {critical} critical failure(s) — charger is NOT compliant[/]"
+    failed = sum(1 for r in results if r.failed)
+    if failed:
+        return 1, f"[yellow]⚠ {failed} failure(s) found — see report for details[/]"
+    errored = sum(1 for r in results if r.status == TestStatus.ERROR)
+    if errored:
+        return 1, (f"[yellow]⚠ {errored} test(s) could not complete (errors) — "
+                   f"the result is inconclusive, not a pass[/]")
+    return 0, "[bold green]✅ All tests passed — charger is OCPP compliant[/]"
 
 
 def load_config(config_path: str = None) -> dict:
@@ -97,8 +126,8 @@ Examples:
     )
     parser.add_argument("--port", type=int, default=int(environ.get("PORT", "9300")),
                         help="WebSocket server port (default: 9300, or $PORT env var)")
-    parser.add_argument("--host", default="0.0.0.0",
-                        help="WebSocket server bind address (default: 0.0.0.0)")
+    parser.add_argument("--host", default=environ.get("HOST", "0.0.0.0"),
+                        help="WebSocket server bind address (default: 0.0.0.0, or $HOST env var)")
     parser.add_argument("--version", choices=["1.6", "2.0.1", "auto"], default="auto",
                         help="OCPP version (default: auto-detect from subprotocol)")
     parser.add_argument("--tests", type=str, default=None,
@@ -261,13 +290,7 @@ async def main():
     if args.ai_model:
         config["ai"]["model"] = args.ai_model
 
-    # Flatten config for easy access by tests
-    flat_config = {}
-    for section, values in config.items():
-        if isinstance(values, dict):
-            flat_config.update(values)
-        else:
-            flat_config[section] = values
+    flat_config = flatten_config(config)
 
     # Parse test categories
     categories = None
@@ -441,20 +464,10 @@ async def main():
                     console=console,
                 )
 
-        # Exit code based on results
-        critical_fails = sum(1 for r in results
-                             if r.failed and r.severity == Severity.CRITICAL)
-        if critical_fails > 0:
-            console.print(f"\n[bold red]⚠ {critical_fails} critical failure(s) — charger is NOT compliant[/]")
-            return 2
-
-        any_fails = sum(1 for r in results if r.failed)
-        if any_fails > 0:
-            console.print(f"\n[yellow]⚠ {any_fails} failure(s) found — see report for details[/]")
-            return 1
-
-        console.print(f"\n[bold green]✅ All tests passed — charger is OCPP compliant[/]")
-        return 0
+        # Exit code based on results (errors are inconclusive, never a pass)
+        code, message = exit_status(results)
+        console.print("\n" + message)
+        return code
 
 
 if __name__ == "__main__":

@@ -12,6 +12,7 @@ WORKDIR /app
 COPY --from=builder /install /usr/local
 COPY . .
 
+# CLI + WebSocket listener (no web UI): chargers connect TO this port.
 EXPOSE 8090
 
 ENV HOST=0.0.0.0

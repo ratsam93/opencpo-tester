@@ -4,6 +4,7 @@ OCPP Compliance Test Runner / Orchestrator.
 Runs tests in dependency order, handles timeouts, interactive prompts,
 auto-responds to charger messages during tests, and collects results.
 """
+import itertools
 import asyncio
 import json
 import logging
@@ -38,6 +39,7 @@ from tests.v16.remote_control import ALL_TESTS as REMOTE_16
 from tests.v16.smart_charging import ALL_TESTS as SMART_16
 from tests.v16.firmware import ALL_TESTS as FW_16
 from tests.v16.protocol import ALL_TESTS as PROTO_16
+from tests.v16.reservation import ALL_TESTS as RESERVATION_16
 
 # OCPP 2.0.1 tests
 from tests.v201.boot import ALL_TESTS as BOOT_201
@@ -45,6 +47,11 @@ from tests.v201.status import ALL_TESTS as STATUS_201
 from tests.v201.transactions import ALL_TESTS as TXN_201
 from tests.v201.variables import ALL_TESTS as VAR_201
 from tests.v201.protocol import ALL_TESTS as PROTO_201
+from tests.v201.remote_control import ALL_TESTS as REMOTE_201
+from tests.v201.meter_values import ALL_TESTS as METER_201
+from tests.v201.smart_charging import ALL_TESTS as SMART_201
+from tests.v201.firmware import ALL_TESTS as FW_201
+from tests.v201.security import ALL_TESTS as SECURITY_201
 
 
 V16_TEST_CATEGORIES = {
@@ -57,25 +64,41 @@ V16_TEST_CATEGORIES = {
     "smart_charging": SMART_16,
     "firmware": FW_16,
     "protocol": PROTO_16,
+    "reservation": RESERVATION_16,
 }
 
 V201_TEST_CATEGORIES = {
     "boot": BOOT_201,
     "status": STATUS_201,
     "transactions": TXN_201,
-    "remote_control": VAR_201,
+    "meter_values": METER_201,
+    "remote_control": REMOTE_201 + VAR_201,
+    "smart_charging": SMART_201,
+    "firmware": FW_201,
+    "security": SECURITY_201,
     "protocol": PROTO_201,
+}
+
+# Test classes deliberately not registered in any category above.
+# tests/test_registry.py fails if an OCPPTest subclass is neither registered
+# nor listed here. See docs/UNREGISTERED_TESTS.md for the reasons.
+EXCLUDED_TESTS = {
+    "HeartbeatMultipleSamples":
+        "Stub that always passes; heartbeat_interval already collects multiple samples.",
 }
 
 # Default test order — dependencies flow left to right
 DEFAULT_CATEGORY_ORDER = [
     "boot", "protocol", "status", "remote_control",
     "auth", "transactions", "meter_values",
-    "smart_charging", "firmware",
+    "smart_charging", "reservation", "security", "firmware",
 ]
 
 # Non-default tests (only run with --full)
 FULL_ONLY_CATEGORIES = {"firmware"}
+
+
+_TXN_IDS = itertools.count(1001)   # nonzero: tests treat 0 as "no transaction"
 
 
 class TestRunner:
@@ -330,7 +353,7 @@ async def handle_boot_sequence(server: OCPPServer, connection: ChargerConnection
     async def handle_start_txn(conn, uid, action, payload):
         connector_id = payload.get("connectorId", 1)
         meter_start = payload.get("meterStart", 0)
-        txn_id = 0
+        txn_id = next(_TXN_IDS)
         conn.active_transaction_id = txn_id
         conn.active_connector_id = connector_id
         conn.meter_start = meter_start
@@ -467,7 +490,7 @@ def preregister_handlers(server: OCPPServer, config: dict):
         return msg16.authorize_conf("Accepted")
 
     async def handle_start_txn(conn, uid, action, payload):
-        txn_id = 0
+        txn_id = next(_TXN_IDS)
         conn.active_transaction_id = txn_id
         conn.active_connector_id = payload.get("connectorId", 1)
         conn.meter_start = payload.get("meterStart", 0)

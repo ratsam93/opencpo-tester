@@ -406,6 +406,90 @@ class TriggerMessage(OCPPTest):
             exchanges=exchanges)
 
 
+class ChangeAvailabilityOperative(OCPPTest):
+    name = "change_availability_operative"
+    category = "remote_control"
+    description = "ChangeAvailability(Operative) → Accepted, Rejected or Scheduled"
+    ocpp_spec_ref = "OCPP 1.6 §5.2"
+    severity = Severity.WARNING
+    versions = ["1.6"]
+
+    async def run(self, connection) -> TestResult:
+        connector_id = connection.active_connector_id or 1
+        exchanges = []
+
+        payload = {"connectorId": connector_id, "type": "Operative"}
+        resp = await connection.send_call_and_wait("ChangeAvailability", payload, timeout=15.0)
+        exchanges.append(make_exchange("SENT", "ChangeAvailability", "change_availability", payload))
+
+        if resp is None:
+            return self.result(False, "ChangeAvailability timed out",
+                expected="status: Accepted, Rejected or Scheduled",
+                actual="No response",
+                fix="Implement ChangeAvailability handler",
+                exchanges=exchanges)
+
+        exchanges.append(make_exchange("RECEIVED", "ChangeAvailability.conf", "change_availability", resp))
+
+        if resp.get("_is_error"):
+            return self.result(False, f"ChangeAvailability error: {resp.get('error_code')}",
+                               exchanges=exchanges)
+
+        status = resp.get("status", "")
+        valid = {"Accepted", "Rejected", "Scheduled"}
+        if status not in valid:
+            return self.result(False,
+                f"Invalid ChangeAvailability status: '{status}'",
+                expected=f"One of: {sorted(valid)}",
+                actual=f"'{status}'",
+                fix=f"Return one of: {sorted(valid)}",
+                exchanges=exchanges)
+
+        return self.result(True,
+            f"ChangeAvailability(connector={connector_id}, Operative) → {status}",
+            exchanges=exchanges)
+
+
+class ClearCacheTest(OCPPTest):
+    name = "clear_cache"
+    category = "remote_control"
+    description = "ClearCache → Accepted or Rejected"
+    ocpp_spec_ref = "OCPP 1.6 §5.3"
+    severity = Severity.INFO
+    versions = ["1.6"]
+
+    async def run(self, connection) -> TestResult:
+        exchanges = []
+
+        resp = await connection.send_call_and_wait("ClearCache", {}, timeout=15.0)
+        exchanges.append(make_exchange("SENT", "ClearCache", "clear_cache", {}))
+
+        if resp is None:
+            return self.result(False, "ClearCache timed out",
+                expected="status: Accepted or Rejected",
+                actual="No response",
+                fix="Implement ClearCache handler",
+                exchanges=exchanges)
+
+        exchanges.append(make_exchange("RECEIVED", "ClearCache.conf", "clear_cache", resp))
+
+        if resp.get("_is_error"):
+            return self.result(False, f"ClearCache error: {resp.get('error_code')}",
+                               exchanges=exchanges)
+
+        status = resp.get("status", "")
+        valid = {"Accepted", "Rejected"}
+        if status not in valid:
+            return self.result(False,
+                f"Invalid ClearCache status: '{status}'",
+                expected=f"One of: {sorted(valid)}",
+                actual=f"'{status}'",
+                fix=f"Return one of: {sorted(valid)}",
+                exchanges=exchanges)
+
+        return self.result(True, f"ClearCache → {status}", exchanges=exchanges)
+
+
 ALL_TESTS = [
     ResetSoft,
     ResetHard,
@@ -415,4 +499,6 @@ ALL_TESTS = [
     GetConfigurationSpecificKey,
     UnlockConnector,
     TriggerMessage,
+    ChangeAvailabilityOperative,
+    ClearCacheTest,
 ]

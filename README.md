@@ -1,6 +1,13 @@
 # OCPP Compliance Tester
 
-An automated compliance testing tool for EV chargers. It acts as a CSMS (Central System), connects to your charger over WebSocket, runs a comprehensive test suite against the OCPP 1.6 and 2.0.1 specifications, and generates professional PDF, HTML, and JSON reports with per-test results, message exchanges, spec references, and fix recommendations.
+An automated compliance testing tool for EV chargers. It acts as a CSMS (Central System): it is a command-line tool that runs a WebSocket listener, and your charger connects *to it*. Once connected it runs a comprehensive test suite against the OCPP 1.6 and 2.0.1 specifications, and generates professional PDF, HTML, and JSON reports with per-test results, message exchanges, spec references, and fix recommendations.
+
+> **How it works.** The tester is a CLI plus a WebSocket listener. It has no web UI
+> and never dials out: chargers (or a charger simulator) connect **to** it at
+> `ws://<host>:<PORT>/ocpp/<charger-id>`. `PORT` defaults to 9300 (the Docker image
+> sets `PORT=8090`); the bind address comes from `--host` or the `HOST` env var
+> (default `0.0.0.0`). Opening the port in a browser returns `426 Upgrade Required`.
+> Results are written as PDF/HTML/JSON report files.
 
 ---
 
@@ -123,7 +130,7 @@ usage: ocpp-tester [options]
 
 options:
   --port PORT           WebSocket server port (default: 9300)
-  --host HOST           Bind address (default: 0.0.0.0)
+  --host HOST           Bind address (default: 0.0.0.0, or $HOST env var)
   --version {1.6,2.0.1,auto}
                         OCPP version (default: auto-detect)
   --tests TESTS         Comma-separated categories to run

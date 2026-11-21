@@ -107,6 +107,7 @@ class RequestStartTransaction201(OCPPTest):
 
         import uuid
         payload = {
+            "remoteStartId": uuid.uuid4().int % (2 ** 31),  # required by the 2.0.1 spec
             "evseId": 1,
             "idToken": {"idToken": valid_tag, "type": "ISO14443"},
         }
